@@ -37,8 +37,6 @@ class TextBody extends Node {
     super.draw();
     if (font != null)
       textFont(font);
-    strokeWeight(7);
-    rect(x,y,w,h);
     textAlign(alignX, alignY);
     text(text, x, y, w, h); 
     textAlign(LEFT, BASELINE);

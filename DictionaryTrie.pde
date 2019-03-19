@@ -7,30 +7,47 @@ public class DictionaryTrie {
 
   private final static int ALPHABET_LEN = 26;
   private final static int NUM_LEN = 3;
+  private final static int SP_LEN = 1;
   private TrieNode root;
-  private String regex;
+  private Pattern p;
 
   public DictionaryTrie(final String regex) {
     root = new TrieNode();
-    this.regex = regex;
+    p = Pattern.compile(regex);
   }
 
   public void addWord(final String word) {
-    Pattern p = Pattern.compile(this.regex);
     Matcher m = p.matcher(word);
     if (m.find()) {
-      root.addWord(word.toLowerCase());
+      root.addWord(word.toLowerCase().trim());
+    }
+    else {
+      println("Error: " + word + " rejected by the regex");  
     }
   }
 
-  public ArrayList getWords(final String word) {
-    TrieNode node = root;
-    final String lower = word.toLowerCase();
-    for (int i = 0; i < lower.length(); ++i) {
-      node = node.getNode(lower.charAt(i));
-      if (node == null) return new ArrayList();
+  public void getWords(final String word, ArrayList<String> list) {
+    Matcher m = p.matcher(word);
+    if (m.find()) {
+      if (list != null) {
+        list.clear();
+        TrieNode node = root, prev;
+        final String lower = word.toLowerCase().trim();
+        int prefixLength = 0;
+        for (prefixLength = 0; prefixLength < lower.length(); ++prefixLength) {
+          prev = node;
+          node = node.getNode(lower.charAt(prefixLength));
+          if (node == null) {
+            if (prev != null) {
+              node = prev;
+              break;
+            }
+            return;
+          }
+        }
+        node.getWords(word.substring(0, --prefixLength), list);
+      }
     }
-    return node.getWords(new StringBuffer());
   }
 }
 
@@ -43,7 +60,9 @@ private class TrieNode {
   public TrieNode() {
     this.isEnd = false;
     this.isLeaf = true;
-    this.children = new TrieNode[DictionaryTrie.ALPHABET_LEN + DictionaryTrie.NUM_LEN];
+    this.children = new TrieNode[DictionaryTrie.ALPHABET_LEN
+      + DictionaryTrie.NUM_LEN
+      + DictionaryTrie.SP_LEN];
   }
 
   public TrieNode(final char character) {
@@ -55,8 +74,10 @@ private class TrieNode {
     if (!word.isEmpty()) {
       char nextChar = word.charAt(0);
       int indexedChar;
-      if (Character.isDigit(nextChar)) {        
+      if (Character.isDigit(nextChar)) { 
         indexedChar = DictionaryTrie.ALPHABET_LEN + nextChar - '1';
+      } else if (Character.isWhitespace(nextChar)) {
+        indexedChar = DictionaryTrie.ALPHABET_LEN + DictionaryTrie.NUM_LEN;
       } else {
         indexedChar = nextChar - 'a';
       }
@@ -67,37 +88,35 @@ private class TrieNode {
       if (word.length() > 1 ) {
         children[indexedChar].addWord(word.substring(1));
       } else {
-        this.isEnd = true;
+        children[indexedChar].setEnd(true);
       }
     }
   }
 
-  public ArrayList getWords(StringBuffer word) {
-    ArrayList<String> list = new ArrayList();
-    word.append(this.character);
-    if (isEnd) {
-      list.add(word.toString());
+  public void getWords(String word, ArrayList<String> list) {
+    if (isEnd()) {
+      list.add(Util.toUpper(word + getCharacter()));
     }
 
-    if (!isLeaf) {
+    if (!isLeaf()) {
       for (int i = 0; i < children.length; ++i) {
         if (children[i] != null) {
-          list.addAll(children[i].getWords(word));
+          children[i].getWords(word + getCharacter(), list);
         }
       }
     }
-    return list;
   }
 
   public TrieNode getNode(final char character) {
-    int index = 0;
-    if(Character.isDigit(character)) {
-      index = DictionaryTrie.ALPHABET_LEN + character - '1';  
+    int indexedChar = 0;
+    if (Character.isDigit(character)) { 
+      indexedChar = DictionaryTrie.ALPHABET_LEN + character - '1';
+    } else if (Character.isWhitespace(character)) {
+      indexedChar = DictionaryTrie.ALPHABET_LEN + DictionaryTrie.NUM_LEN;
+    } else {
+      indexedChar = character - 'a';
     }
-    else {
-      index = character - 'a';
-    }
-    return this.children[index];
+    return this.children[indexedChar];
   }
 
   public char getCharacter() {
@@ -106,6 +125,10 @@ private class TrieNode {
 
   public boolean isEnd() {
     return isEnd;
+  }
+
+  public void setEnd(final boolean end) {
+    isEnd = end;
   }
 
   public boolean isLeaf() {
